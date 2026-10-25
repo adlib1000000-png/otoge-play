@@ -2,15 +2,33 @@
 <html lang="ja">
   <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1.0, user-scalable=no">
+    <!-- スマホで等倍表示・拡大縮小なし。viewport-fit=cover でノッチ付き端末の画面全体を使う -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
     <title>otoge</title>
     <style>
-      html, body { margin: 0; height: 100%; overflow: hidden; background: #05050d; }
+      html, body {
+        margin: 0; height: 100%; overflow: hidden; background: #000;
+        /* 余白部分のダブルタップ拡大・スクロールも止める */
+        touch-action: none; overscroll-behavior: none;
+      }
+      /* 画面（ノッチ等の安全領域を除く）いっぱいの舞台。キャンバスを中央に置く */
+      #stage {
+        position: fixed; left: 0; top: 0; box-sizing: border-box;
+        display: flex; align-items: center; justify-content: center;
+        padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+      }
+      /* 内部解像度は固定のまま、表示サイズだけ JS で縦横比を保って拡大縮小する */
       #unity-canvas {
-        display: block; width: 100vw; height: 100vh; background: #05050d; outline: none;
+        display: block; flex: none; background: #05050d; outline: none;
         /* タップ連打でページがスクロール・拡大・長押しメニュー表示しないように */
         touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
         -webkit-tap-highlight-color: transparent;
+      }
+      #rotate-hint {
+        position: fixed; left: 0; right: 0; display: none; text-align: center;
+        color: #aab; font: 14px system-ui, sans-serif; pointer-events: none;
       }
       #loading {
         position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -22,7 +40,10 @@
     </style>
   </head>
   <body>
-    <canvas id="unity-canvas" tabindex="-1"></canvas>
+    <div id="stage">
+      <canvas id="unity-canvas" width="1280" height="720" tabindex="-1"></canvas>
+    </div>
+    <div id="rotate-hint">横向きにすると大きく表示されます</div>
     <div id="loading">
       <div id="loading-text">読み込み中...</div>
       <div id="bar"><div id="bar-fill"></div></div>
@@ -30,6 +51,41 @@
     </div>
     <script>
       var canvas = document.querySelector("#unity-canvas");
+      var stage = document.querySelector("#stage");
+      var hint = document.querySelector("#rotate-hint");
+      // ゲームの内部解像度（Player Settings の Default Canvas Width/Height）。表示サイズが変わっても変えない
+      var GAME_WIDTH = canvas.width, GAME_HEIGHT = canvas.height;
+
+      // 画面に収まる最大サイズまで、縦横比を保って拡大縮小する
+      function fitCanvas() {
+        stage.style.width = window.innerWidth + "px";
+        stage.style.height = window.innerHeight + "px";
+        var cs = getComputedStyle(stage);
+        var availW = stage.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+        var availH = stage.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+        var scale = Math.min(availW / GAME_WIDTH, availH / GAME_HEIGHT);
+        var w = Math.floor(GAME_WIDTH * scale), h = Math.floor(GAME_HEIGHT * scale);
+        canvas.style.width = w + "px";
+        canvas.style.height = h + "px";
+
+        // 縦持ちで下に余白があれば、横向きを案内する
+        var gap = (availH - h) / 2;
+        if (availH > availW && gap >= 32) {
+          hint.style.display = "block";
+          hint.style.top = (window.innerHeight / 2 + h / 2 + Math.min(gap / 2, 40) - 8) + "px";
+        } else {
+          hint.style.display = "none";
+        }
+      }
+      fitCanvas();
+      window.addEventListener("resize", fitCanvas);
+      // 回転直後はサイズが確定していない端末があるので、少し待ってからもう一度合わせる
+      window.addEventListener("orientationchange", function () {
+        fitCanvas();
+        setTimeout(fitCanvas, 300);
+      });
+      if (window.visualViewport) window.visualViewport.addEventListener("resize", fitCanvas);
+
       var buildUrl = "Build";
       var config = {
         arguments: [],
@@ -40,6 +96,8 @@
         companyName: "DefaultCompany",
         productName: "otoge",
         productVersion: "1.0",
+        // 表示サイズに合わせて内部解像度を変えない（上の fitCanvas が CSS で縮小表示する）
+        matchWebGLToCanvasSize: false,
       };
 
       // キー入力がゲームに届くよう、クリックでキャンバスにフォーカスする
@@ -57,6 +115,10 @@
           document.querySelector("#bar-fill").style.width = 100 * progress + "%";
         }).then(function () {
           document.querySelector("#loading").style.display = "none";
+          // 念のため内部解像度を確認（同じ値を代入すると描画が一瞬消えるので、違うときだけ直す）
+          if (canvas.width !== GAME_WIDTH) canvas.width = GAME_WIDTH;
+          if (canvas.height !== GAME_HEIGHT) canvas.height = GAME_HEIGHT;
+          fitCanvas();
           canvas.focus();
         }).catch(function (message) {
           document.querySelector("#loading-text").textContent = "起動できませんでした";
