@@ -1,10 +1,10 @@
 // オフラインでも遊べるようにするサービスワーカー。
 // ゲーム一式（ページ・Unity のビルド・アイコン）を初回に保存し、以後は保存したものから起動する。
-// cdf96fc84d19 と __ASSETS__ はビルド後にエディタ（PwaBuildPostprocessor）が書き換える。
+// 820180ce34c4 と __ASSETS__ はビルド後にエディタ（PwaBuildPostprocessor）が書き換える。
 // 中身が変わるとブラウザが新しい版として入れ直し、古い保存データは消える。
 
 const CACHE_PREFIX = "otoge-";
-const CACHE = CACHE_PREFIX + "cdf96fc84d19";
+const CACHE = CACHE_PREFIX + "820180ce34c4";
 const ASSETS = ["./", "Build/WebGL.data.unityweb", "Build/WebGL.framework.js.unityweb", "Build/WebGL.loader.js", "Build/WebGL.wasm.unityweb", "icons/apple-touch-icon.png", "icons/favicon-32.png", "icons/icon-192.png", "icons/icon-512.png", "icons/icon-maskable-192.png", "icons/icon-maskable-512.png", "index.html", "manifest.webmanifest"];
 
 self.addEventListener("install", (event) => {
