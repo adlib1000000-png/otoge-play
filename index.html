@@ -4,9 +4,17 @@
     <meta charset="utf-8">
     <!-- スマホで等倍表示・拡大縮小なし。viewport-fit=cover でノッチ付き端末の画面全体を使う -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <!-- PWA: ホーム画面に追加すると全画面のアプリとして起動し、オフラインでも遊べる -->
+    <link rel="manifest" href="manifest.webmanifest">
+    <meta name="theme-color" content="#05050d">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <title>otoge</title>
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="リズムゲーム">
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+    <title>リズムゲーム</title>
     <style>
       html, body {
         margin: 0; height: 100%; overflow: hidden; background: #000;
@@ -108,6 +116,15 @@
         if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", " "].indexOf(e.key) >= 0) e.preventDefault();
       });
 
+      // オフライン用にゲーム一式を保存するサービスワーカーを登録する。
+      // ゲームの読み込みが終わってから登録するので、さっき取ってきたファイルを再利用でき、二重にダウンロードしない
+      function registerServiceWorker() {
+        if (!("serviceWorker" in navigator)) return;
+        navigator.serviceWorker.register("sw.js").catch(function (e) {
+          console.warn("Service worker の登録に失敗しました", e);
+        });
+      }
+
       var script = document.createElement("script");
       script.src = buildUrl + "/WebGL.loader.js";
       script.onload = function () {
@@ -120,6 +137,7 @@
           if (canvas.height !== GAME_HEIGHT) canvas.height = GAME_HEIGHT;
           fitCanvas();
           canvas.focus();
+          registerServiceWorker();
         }).catch(function (message) {
           document.querySelector("#loading-text").textContent = "起動できませんでした";
           document.querySelector("#error").textContent = message;
